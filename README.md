@@ -42,4 +42,3 @@ Push changes to database file:
 flask db upgrade
 ```
 ---
----
