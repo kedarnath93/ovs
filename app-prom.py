@@ -108,8 +108,180 @@ def logout():
 
     return redirect(url_for('login'))
 
-# More Routes...
-# Each route can similarly be instrumented with REQUEST_COUNT and REQUEST_LATENCY as shown in the login and logout routes.
+@login_manager.user_loader
+def load_user(user_id):
+	return Users.query.get(int(user_id))
+
+# Create SignUp Page
+@app.route('/signup', methods=['GET', 'POST'])
+def signup():
+	start_time = time.time()
+	form = UserForm()
+	if form.validate_on_submit():
+		user = Users.query.filter_by(email=form.email.data).first()
+		if user is None:
+			# Hash the password!!!
+			hashed_pw = generate_password_hash(form.password_hash.data, "sha256")
+			user = Users(username=form.username.data, firstname=form.firstname.data, lastname=form.lastname.data, email=form.email.data, gender=form.gender.data, password_hash=hashed_pw)
+			db.session.add(user)
+			db.session.commit()
+			form.firstname.data = ''
+			form.lastname.data = ''
+			form.username.data = ''
+			form.email.data = ''
+			form.gender.data = ''
+			form.password_hash.data = ''
+			flash("User Added Successfully!")
+			return redirect(url_for('login'))
+		else:
+			flash("An account already exists with the given email!")
+	#Record signup action
+	REQUEST_COUNT.labels(method='GET', endpoint='/signup', status_code='200').inc()
+	REQUEST_LATENCY.labels(method='GET', endpoint='/signup').observe(time.time() - start_time)
+	return render_template("signup.html", form=form)
+
+# Create Dashboard Page
+@app.route('/dashboard', methods=['GET', 'POST'])
+@login_required
+def dashboard():
+	start_time = time.time()
+	voteevents = Voteevent.query.order_by(Voteevent.date_added)
+    #Record dashboard action
+	REQUEST_COUNT.labels(method='GET', endpoint='/dashboard', status_code='200').inc()
+	REQUEST_LATENCY.labels(method='GET', endpoint='/dashboard').observe(time.time() - start_time)
+	return render_template('dashboard.html',firstname=session['firstname'], voteevents=voteevents)
+
+# Create createvoteevent Page
+@app.route('/createvoteevent', methods=['GET', 'POST'])
+@login_required
+def createvoteevent():
+	start_time = time.time()
+	form = VoteEventForm()
+	voteevent=None
+	participants=None
+	if form.validate_on_submit():
+		voteevent = Voteevent(name=form.name.data, description=form.description.data, created_by=session['id'])
+		db.session.add(voteevent)
+		db.session.commit()
+		voteevent = Voteevent.query.filter_by(name=form.name.data).first()
+		participants = Participants(name=form.participant1.data, voteevent=voteevent.id)
+		db.session.add(participants)
+		db.session.commit()
+		participants = Participants(name=form.participant2.data, voteevent=voteevent.id)
+		db.session.add(participants)
+		db.session.commit()
+		if form.participant3.data:
+			participants = Participants(name=form.participant3.data, voteevent=voteevent.id)
+			db.session.add(participants)
+			db.session.commit()
+		if form.participant4.data:
+			participants = Participants(name=form.participant4.data, voteevent=voteevent.id)
+			db.session.add(participants)
+			db.session.commit()
+		if form.participant5.data:
+			participants = Participants(name=form.participant5.data, voteevent=voteevent.id)
+			db.session.add(participants)
+			db.session.commit()
+		if form.participant6.data:
+			participants = Participants(name=form.participant6.data, voteevent=voteevent.id)
+			db.session.add(participants)
+			db.session.commit()
+		if form.participant7.data:
+			participants = Participants(name=form.participant7.data, voteevent=voteevent.id)
+			db.session.add(participants)
+			db.session.commit()
+		if form.participant8.data:
+			participants = Participants(name=form.participant8.data, voteevent=voteevent.id)
+			db.session.add(participants)
+			db.session.commit()
+		if form.participant9.data:
+			participants = Participants(name=form.participant9.data, voteevent=voteevent.id)
+			db.session.add(participants)
+			db.session.commit()
+		if form.participant10.data:
+			participants = Participants(name=form.participant10.data, voteevent=voteevent.id)
+			db.session.add(participants)
+			db.session.commit()
+		form.name.data = ''
+		form.description.data = ''
+		form.participant1.data = ''
+		form.participant2.data = ''
+		form.participant3.data = ''
+		form.participant4.data = ''
+		form.participant5.data = ''
+		form.participant6.data = ''
+		form.participant7.data = ''
+		form.participant8.data = ''
+		form.participant9.data = ''
+		form.participant10.data = ''
+		flash("Event Created Successfully!")
+		#Record createvoteevent action
+		REQUEST_COUNT.labels(method='GET', endpoint='/createvoteevent', status_code='200').inc()
+		REQUEST_LATENCY.labels(method='GET', endpoint='/createvoteevent').observe(time.time() - start_time)
+		return redirect(url_for('dashboard'))
+	return render_template('createvoteevent.html',firstname=session['firstname'],form=form)
+
+# Create closevoteevent Page
+@app.route('/closevoteevent', methods=['GET', 'POST'])
+@login_required
+def closevoteevent():
+	start_time = time.time()
+	voteevents = Voteevent.query.filter_by(created_by=session['id'],status='open')
+	if voteevents.count()>0:
+		form = CloseEventForm()
+		form.selectedevents.choices = [(event.name) for event in voteevents]
+		if form.validate_on_submit():
+			for each in form.selectedevents.data:
+				voteevent = Voteevent.query.filter_by(name=each).first()
+				voteevent.status = "closed"
+				db.session.commit()
+			form.selectedevents = ''
+			flash("Event Closed Successfully!")
+			return redirect(url_for('dashboard'))
+	else:
+		flash("No events created to close!")
+		return redirect(url_for('dashboard'))
+	#Record closevoteevent action
+	REQUEST_COUNT.labels(method='GET', endpoint='/closevoteevent', status_code='200').inc()
+	REQUEST_LATENCY.labels(method='GET', endpoint='/closevoteevent').observe(time.time() - start_time)
+	return render_template('closevoteevent.html',firstname=session['firstname'],voteevents=voteevents,form=form)
+
+# Create eventaction Page
+@app.route('/eventaction/<int:eventid>', methods=['GET', 'POST'])
+@login_required
+def eventaction(eventid):
+	start_time = time.time()
+	voteevent = Voteevent.query.get_or_404(eventid)
+	if voteevent is not None:
+		participants = Participants.query.filter_by(voteevent=eventid).order_by(Participants.votecount.desc())
+		if voteevent.status == "open":
+			voteeventuser = Voteeventuser.query.filter_by(user=session['id'],voteevent=eventid).first()
+			if voteeventuser is None:
+				#User didn't caste vote for this event
+				form = CastVoteForm()
+				form.selectedparticipant.choices = [(participant.name) for participant in participants]
+				if form.validate_on_submit():
+					chosenparticipant = Participants.query.filter_by(name=form.selectedparticipant.data,voteevent=eventid).first()
+					chosenparticipant.votecount = int(chosenparticipant.votecount)+1
+					db.session.commit()
+					voteeventuser = Voteeventuser(user=session['id'],voteevent=eventid,uservoted='True')
+					db.session.add(voteeventuser)
+					db.session.commit()
+					form.selectedparticipant=''
+					flash("Vote casted successfully!")
+					return redirect(url_for('dashboard'))
+				return render_template('eventaction.html',firstname=session['firstname'],voteevent=voteevent, participants=participants,form=form)
+			return render_template('eventaction.html',firstname=session['firstname'],voteevent=voteevent, participants=participants)
+		else:
+			if participants[0].votecount == 0:
+				message = "There is no winner for this event!"
+			else:
+				message = "The winner for this event is "+ participants[0].name
+			return render_template('eventaction.html',firstname=session['firstname'],voteevent=voteevent, participants=participants, message=message)
+	#Record eventaction action
+	REQUEST_COUNT.labels(method='GET', endpoint='/eventaction', status_code='200').inc()
+	REQUEST_LATENCY.labels(method='GET', endpoint='/eventaction').observe(time.time() - start_time)
+	return render_template('eventaction.html',firstname=session['firstname'])
 
 # Ensure responses aren't cached
 @app.after_request
@@ -170,3 +342,4 @@ if __name__ == '__main__':
     # Start the Prometheus metrics server on port 8000
     start_http_server(8000)  # This exposes the metrics endpoint to Prometheus
     app.run(host='0.0.0.0', port=5000)
+#kedar-123456

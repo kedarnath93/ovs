@@ -283,3 +283,7 @@ class Voteeventuser(db.Model):
 	# Foreign Key To Link Users (refer to primary key of the voteevent)
 	voteevent = db.Column(db.Integer, db.ForeignKey('voteevent.id'))
 	uservoted = db.Column(db.String(10), nullable=False, default='False')
+
+
+if __name__ == '__main__':
+    app.run(host='0.0.0.0', port=5000)
